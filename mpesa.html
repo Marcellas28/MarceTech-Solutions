@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M-Pesa Payment Integration</title>
+    <style>
+        :root {
+            --mpesa-green: #4CAF50;
+            --mpesa-dark: #2E7D32;
+            --error-red: #f44336;
+            --success-green: #4CAF50;
+            --white: #ffffff;
+            --gray-100: #f5f5f5;
+            --gray-200: #eeeeee;
+            --gray-700: #374151;
+            --gray-900: #212121;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.5;
+            color: var(--gray-900);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+
+        .floating-shapes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .shape {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .shape:nth-child(1) {
+            width: 100px;
+            height: 100px;
+            top: 20%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .shape:nth-child(2) {
+            width: 150px;
+            height: 150px;
+            top: 60%;
+            right: 15%;
+            animation-delay: 2s;
+        }
+
+        .shape:nth-child(3) {
+            width: 70px;
+            height: 70px;
+            bottom: 20%;
+            left: 20%;
+            animation-delay: 4s;
+        }
+
+        .payment-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            width: 100%;
+            max-width: 400px;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .payment-container:hover {
+            transform: translateY(-5px);
+        }
+
+        .payment-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .mpesa-logo {
+            width: 150px;
+            height: 60px;
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            margin: 0 auto 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 15px rgba(46, 125, 50, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--gray-700);
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #23a6d5;
+            box-shadow: 0 0 0 3px rgba(35, 166, 213, 0.1);
+        }
+
+        .amount-input {
+            position: relative;
+        }
+
+        .amount-input::before {
+            content: "KES";
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-700);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .amount-input input {
+            padding-left: 3.5rem;
+        }
+
+        .phone-prefix {
+            position: relative;
+        }
+
+        .phone-prefix::before {
+            content: "+254";
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-700);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .phone-prefix input {
+            padding-left: 4rem;
+        }
+
+        .pay-button {
+            background: linear-gradient(135deg, #23a6d5, #23d5ab);
+            color: var(--white);
+            width: 100%;
+            padding: 0.875rem;
+            border: none;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(35, 166, 213, 0.2);
+        }
+
+        .pay-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(35, 166, 213, 0.3);
+        }
+
+        .pay-button:disabled {
+            background: var(--gray-200);
+            transform: none;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .status-message.success {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(46, 125, 50, 0.1));
+            color: var(--success-green);
+            display: block;
+        }
+
+        .status-message.error {
+            background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(229, 57, 53, 0.1));
+            color: var(--error-red);
+            display: block;
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(35, 166, 213, 0.3);
+            border-top: 3px solid #23a6d5;
+            border-radius: 50%;
+            margin: 1rem auto;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .transaction-details {
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8));
+            border-radius: 0.75rem;
+            display: none;
+            animation: fadeIn 0.3s ease;
+            border: 1px solid rgba(35, 166, 213, 0.2);
+        }
+
+        .transaction-details h3 {
+            margin-bottom: 1rem;
+            color: var(--gray-900);
+            font-size: 1.1rem;
+        }
+
+        .transaction-details p {
+            margin-bottom: 0.5rem;
+            color: var(--gray-700);
+        }
+
+        .error-text {
+            color: var(--error-red);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .payment-container {
+                padding: 1.5rem;
+            }
+
+            .mpesa-logo {
+                width: 120px;
+                height: 50px;
+                font-size: 1rem;
+            }
+        }
+       
+        .logo-2 {
+   margin-right: 0.5rem;
+  border-radius: 57%;
+  width: 60px;  
+  height: 60px; 
+  object-fit: cover;
+
+}
+    </style>
+</head>
+            <div class="logo">
+                <img src="MARCEL..jpg" alt="Marcel" class="logo-2"> 
+    <div class="floating-shapes">
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+    </div>
+
+    <div class="payment-container">
+        <div class="payment-header">
+            <div class="mpesa-logo">M-PESA</div>
+            <h1>Make Payment</h1>
+        </div>
+
+        <form id="mpesaForm">
+            <div class="form-group">
+                <label for="amount">Amount</label>
+                <div class="amount-input">
+                    <input type="text" id="amount" name="amount" placeholder="0.00" required>
+                </div>
+                <div id="amountError" class="error-text"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <div class="phone-prefix">
+                    <input type="tel" id="phone" name="phone" placeholder="7XXXXXXXX" maxlength="9" required>
+                </div>
+                <div id="phoneError" class="error-text"></div>
+            </div>
+
+            <button type="submit" class="pay-button" id="payButton" disabled>
+                Pay with M-Pesa
+            </button>
+        </form>
+
+        <div class="loading-spinner" id="loadingSpinner"></div>
+        <div class="status-message" id="statusMessage"></div>
+
+        <div class="transaction-details" id="transactionDetails">
+            <h3>Transaction Details</h3>
+            <p>Amount: KES <span id="transactionAmount"></span></p>
+            <p>Transaction ID: <span id="transactionId"></span></p>
+            <p>Status: <span id="transactionStatus"></span></p>
+            <p>Time: <span id="transactionTime"></span></p>
+        </div>
+    </div>
+     
+
+    <script>
+        // Previous JavaScript code remains the same
+        document.addEventListener('DOMContentLoaded', function() {
+            const mpesaForm = document.getElementById('mpesaForm');
+            const amountInput = document.getElementById('amount');
+            const phoneInput = document.getElementById('phone');
+            const payButton = document.getElementById('payButton');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const statusMessage = document.getElementById('statusMessage');
+            const transactionDetails = document.getElementById('transactionDetails');
+            const transactionAmount = document.getElementById('transactionAmount');
+            const transactionId = document.getElementById('transactionId');
+            const transactionStatus = document.getElementById('transactionStatus');
+            const transactionTime = document.getElementById('transactionTime');
+            const amountError = document.getElementById('amountError');
+            const phoneError = document.getElementById('phoneError');
+
+            // Format amount input
+            amountInput.addEventListener('input', function(e) {
+                let value = e.target.value;
+                
+                // Remove any non-digit characters except decimal point
+                value = value.replace(/[^\d.]/g, '');
+                
+                // Ensure only one decimal point
+                const parts = value.split('.');
+                if (parts.length > 2) {
+                    value = parts[0] + '.' + parts.slice(1).join('');
+                }
+                
+                // Limit to two decimal places
+                if (parts.length > 1) {
+                    value = parts[0] + '.' + parts[1].slice(0, 2);
+                }
+
+                // Update input value
+                e.target.value = value;
+                
+                validateForm();
+            });
+
+            // Phone number validation
+            phoneInput.addEventListener('input', function(e) {
+                let value = e.target.value;
+                
+                // Remove any non-digit characters
+                value = value.replace(/\D/g, '');
+                
+                // Ensure the number starts with 7
+                if (value.length > 0 && value[0] !== '7') {
+                    value = '7' + value.slice(1);
+                }
+                
+                // Update input value
+                e.target.value = value;
+                
+                validateForm();
+            });
+
+            // Form validation
+            function validateForm() {
+                const amount = parseFloat(amountInput.value);
+                const phone = phoneInput.value;
+                let isValid = true;
+
+                // Validate amount
+                if (isNaN(amount) || amount <= 0) {
+                    amountError.textContent = 'Please enter a valid amount';
+                    amountError.style.display = 'block';
+                    isValid = false;
+                } else if (amount < 1) {
+                    amountError.textContent = 'Minimum amount is KES 1';
+                    amountError.style.display = 'block';
+                    isValid = false;
+                } else if (amount > 150000) {
+                    amountError.textContent = 'Maximum amount is KES 150,000';
+                    amountError.style.display = 'block';
+                    isValid = false;
+                } else {
+                    amountError.style.display = 'none';
+                }
+
+                // Validate phone number
+                if (phone.length !== 9) {
+                    phoneError.textContent = 'Please enter a valid phone number';
+                    phoneError.style.display = 'block';
+                    isValid = false;
+                } else if (phone[0] !== '7') {
+                    phoneError.textContent = 'Phone number must start with 7';
+                    phoneError.style.display = 'block';
+                    isValid = false;
+                } else {
+                    phoneError.style.display = 'none';
+                }
+
+                payButton.disabled = !isValid;
+                return isValid;
+            }
+
+            // Handle form submission
+            mpesaForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                if (!validateForm()) return;
+
+                const amount = parseFloat(amountInput.value);
+                const phone = phoneInput.value;
+                
+                // Show loading state
+                payButton.disabled = true;
+                loadingSpinner.style.display = 'block';
+                statusMessage.style.display = 'none';
+                
+                // Simulate API call
+                simulateMpesaPayment(amount, phone)
+                    .then(handlePaymentResponse)
+                    .catch(handlePaymentError);
+            });
+
+            // Simulate M-Pesa payment
+            function simulateMpesaPayment(amount, phone) {
+                return new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        if (Math.random() > 0.3) {
+                            resolve({
+                                success: true,
+                                amount: amount,
+                                transactionId: 'MPESA' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+                                message: 'Payment request sent successfully'
+                            });
+                        } else {
+                            reject({
+                                success: false,
+                                message: 'Payment request failed. Please try again.'
+                            });
+                        }
+                    }, 2000);
+                });
+            }
+
+            // Handle successful payment
+            function handlePaymentResponse(response) {
+                loadingSpinner.style.display = 'none';
+                
+                if (response.success) {
+                    statusMessage.textContent = response.message;
+                    statusMessage.className = 'status-message success';
+                    statusMessage.style.display = 'block';
+
+                    transactionAmount.textContent = response.amount.toFixed(2);
+                    transactionId.textContent = response.transactionId;
+                    transactionStatus.textContent = 'Pending';
+                    transactionTime.textContent = new Date().toLocaleString();
+                    transactionDetails.style.display = 'block';
+
+                    setTimeout(() => {
+                        transactionStatus.textContent = 'Completed';
+                        statusMessage.textContent = 'Payment completed successfully!';
+                    }, 3000);
+                }
+
+                setTimeout(resetForm, 5000);
+            }
+
+            // Handle payment error
+            function handlePaymentError(error) {
+                loadingSpinner.style.display = 'none';
+                statusMessage.textContent = error.message;
+                statusMessage.className = 'status-message error';
+                statusMessage.style.display = 'block';
+                payButton.disabled = false;
+
+                setTimeout(() => {
+                    statusMessage.style.display = 'none';
+                }, 3000);
+            }
+
+            // Reset form
+            function resetForm() {
+                mpesaForm.reset();
+                payButton.disabled = true;
+                statusMessage.style.display = 'none';
+                transactionDetails.style.display = 'none';
+                amountError.style.display = 'none';
+                phoneError.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
